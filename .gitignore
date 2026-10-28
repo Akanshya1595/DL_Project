@@ -1,0 +1,60 @@
+# --- Model weights and training artefacts -------------------------------------
+# ResNet-50 is ~100 MB and ViT-B/16 ~330 MB per checkpoint: never commit these.
+**/results/checkpoints/
+*.pt
+*.pth
+*.ckpt
+*.onnx
+
+# --- Datasets ------------------------------------------------------------------
+# The ~15,150 images stay local. ONLY data/splits.csv is committed (see below).
+**/data/*
+!**/data/splits.csv
+!**/data/.gitkeep
+# data_root.txt is machine-specific (each member's own dataset path).
+**/data/data_root.txt
+
+# --- Generated results ---------------------------------------------------------
+# Metrics, curves, confusion matrices and the comparison table ARE deliverables,
+# so results/ itself is tracked; only the heavyweight checkpoints above are not.
+
+# --- Contribution log (regenerate with scripts/export_commit_log.sh) -----------
+commit_history.txt
+
+# --- Python --------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# --- Virtual environments ------------------------------------------------------
+venv/
+.venv/
+env/
+ENV/
+
+# --- Notebooks -----------------------------------------------------------------
+.ipynb_checkpoints/
+
+# --- Tooling / caches ----------------------------------------------------------
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Editors / OS --------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# --- Kaggle credentials (NEVER commit) -----------------------------------------
+kaggle.json
+.kaggle/

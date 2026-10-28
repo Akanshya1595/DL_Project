@@ -5,12 +5,15 @@ Owner: Akanshya Chakraborty.
 Usage
 -----
 # automatic download from Kaggle (needs Kaggle credentials configured):
-python -m src.data_prep --download
+python -m shared.data_prep --download
 # or point at a folder you already downloaded/unzipped:
-python -m src.data_prep --data_root /path/to/garbage_classification
+python -m shared.data_prep --data_root /path/to/garbage_classification
 
 The split is written ONCE to data/splits.csv and then committed. Re-running is
 refused unless --force is given, so every member trains on the identical split.
+
+Byte-identical duplicate images are removed BEFORE the split (see dedupe), so
+the same image cannot appear in both train and test.
 """
 import argparse
 import hashlib
@@ -67,6 +70,26 @@ def scan(root: Path) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def dedupe(df: pd.DataFrame):
+    """Drop byte-identical images BEFORE splitting. Returns (df, n_removed).
+
+    This dataset contains exact duplicates. Splitting first and only *counting*
+    them afterwards leaves train/test contamination in place: the same bytes can
+    land in train and in test, so the test score is partly a memorisation score
+    and every model's number is inflated by an unknown amount.
+
+    Keeping one copy per md5 makes that leakage impossible by construction, and
+    the EDA check below then reads 0 as a verification rather than a warning.
+    Deduplicating before the split (not after) also keeps the 70/15/15 ratios
+    and the per-class stratification exact.
+    """
+    before = len(df)
+    out = (df.sort_values("path")
+             .drop_duplicates(subset="md5", keep="first")
+             .reset_index(drop=True))
+    return out, before - len(out)
+
+
 def make_split(df: pd.DataFrame, seed: int = SEED) -> pd.DataFrame:
     train, temp = train_test_split(df, test_size=0.30, stratify=df["label"], random_state=seed)
     val, test = train_test_split(temp, test_size=0.50, stratify=temp["label"], random_state=seed)
@@ -75,7 +98,7 @@ def make_split(df: pd.DataFrame, seed: int = SEED) -> pd.DataFrame:
             .sort_values("path").reset_index(drop=True))
 
 
-def eda(df: pd.DataFrame, out_dir: Path):
+def eda(df: pd.DataFrame, out_dir: Path, duplicates_removed: int = 0):
     out_dir.mkdir(parents=True, exist_ok=True)
     counts = df.groupby(["label", "split"]).size().unstack(fill_value=0)
     counts["total"] = counts.sum(axis=1)
@@ -96,7 +119,9 @@ def eda(df: pd.DataFrame, out_dir: Path):
         "width": df["width"].describe().round(1).to_dict(),
         "height": df["height"].describe().round(1).to_dict(),
         "split_sizes": df["split"].value_counts().to_dict(),
-        # data-leakage check: byte-identical files, and those landing in different splits
+        # data-leakage check: both should be 0 because dedupe() ran before the
+        # split. A non-zero value here means --keep_duplicates was used.
+        "duplicates_removed_before_split": int(duplicates_removed),
         "exact_duplicate_files": int(df["md5"].duplicated().sum()),
         "duplicate_groups_spanning_splits": int((df.groupby("md5")["split"].nunique() > 1).sum()),
     }
@@ -112,6 +137,9 @@ def main():
     ap.add_argument("--seed", type=int, default=SEED)
     ap.add_argument("--min_classes", type=int, default=10)
     ap.add_argument("--force", action="store_true", help="overwrite an existing frozen split")
+    ap.add_argument("--keep_duplicates", action="store_true",
+                    help="do NOT remove byte-identical images (reproduces the old behaviour; "
+                         "allows train/test leakage)")
     a = ap.parse_args()
 
     if SPLIT_CSV.exists() and not a.force:
@@ -123,11 +151,20 @@ def main():
     root = find_class_root(base, a.min_classes)
     print(f"Class root: {root}")
 
-    df = make_split(scan(root), a.seed)
+    scanned = scan(root)
+    if a.keep_duplicates:
+        deduped, n_dup = scanned, 0
+        print("[warn] --keep_duplicates: byte-identical images may span train/test (leakage risk)")
+    else:
+        deduped, n_dup = dedupe(scanned)
+        print(f"[dedupe] removed {n_dup} byte-identical duplicate image(s) of {len(scanned)}; "
+              f"{len(deduped)} unique images kept")
+
+    df = make_split(deduped, a.seed)
     DATA_DIR.mkdir(exist_ok=True)
     df.to_csv(SPLIT_CSV, index=False)
     (DATA_DIR / "data_root.txt").write_text(str(root))
-    eda(df, RESULTS_DIR / "eda")
+    eda(df, RESULTS_DIR / "eda", duplicates_removed=n_dup)
     print(f"Saved frozen split -> {SPLIT_CSV}")
 
 

@@ -1,0 +1,14 @@
+{
+ "battery": 0,
+ "biological": 1,
+ "brown-glass": 2,
+ "cardboard": 3,
+ "clothes": 4,
+ "green-glass": 5,
+ "metal": 6,
+ "paper": 7,
+ "plastic": 8,
+ "shoes": 9,
+ "trash": 10,
+ "white-glass": 11
+}

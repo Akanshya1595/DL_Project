@@ -1,0 +1,26 @@
+{
+ "n_images": 15515,
+ "n_unreadable_dropped": 0,
+ "class_counts": {
+  "battery": 945,
+  "biological": 985,
+  "brown-glass": 607,
+  "cardboard": 891,
+  "clothes": 5325,
+  "green-glass": 629,
+  "metal": 769,
+  "paper": 1050,
+  "plastic": 865,
+  "shoes": 1977,
+  "trash": 697,
+  "white-glass": 775
+ },
+ "n_train": 10860,
+ "n_val": 2327,
+ "n_test": 2328,
+ "dedup_hash": "64-bit dHash",
+ "dedup_hamming_threshold": 4,
+ "near_dup_in_test": 205,
+ "near_dup_in_val": 172,
+ "split_fingerprint": "591155c8c8bd"
+}
